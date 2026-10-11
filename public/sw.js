@@ -1,4 +1,4 @@
-const CACHE = "notes-app-v2";
+const CACHE = "notes-app-v3-utf8";
 const PRECACHE = ["/", "/index.html", "/styles.css", "/app.js", "/manifest.json"];
 
 self.addEventListener("install", (event) => {

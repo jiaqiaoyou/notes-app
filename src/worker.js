@@ -19,18 +19,39 @@ export default {
     }
 
     // Static assets (SPA-ish: miss → index.html for navigations)
+    // Production deploy embeds files via worker.bundle.js (base64) for UTF-8 safety.
     if (env.ASSETS) {
-      const assetResp = await env.ASSETS.fetch(request);
-      if (assetResp.status !== 404) return assetResp;
-      if (request.method === "GET" && acceptsHtml(request)) {
+      let assetResp = await env.ASSETS.fetch(request);
+      if (assetResp.status === 404 && request.method === "GET" && acceptsHtml(request)) {
         const indexReq = new Request(new URL("/index.html", url.origin), request);
-        return env.ASSETS.fetch(indexReq);
+        assetResp = await env.ASSETS.fetch(indexReq);
       }
-      return assetResp;
+      return withUtf8Charset(assetResp);
     }
     return new Response("Not found", { status: 404 });
   },
 };
+
+
+function withUtf8Charset(resp) {
+  if (!resp) return resp;
+  const ct = resp.headers.get("Content-Type") || "";
+  if (!ct || ct.includes("charset=") || ct.startsWith("image/") || ct.startsWith("font/")) {
+    return resp;
+  }
+  if (
+    ct.startsWith("text/") ||
+    ct.includes("javascript") ||
+    ct.includes("json") ||
+    ct.includes("svg") ||
+    ct.includes("xml")
+  ) {
+    const headers = new Headers(resp.headers);
+    headers.set("Content-Type", ct.split(";")[0].trim() + "; charset=utf-8");
+    return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers });
+  }
+  return resp;
+}
 
 function acceptsHtml(request) {
   const accept = request.headers.get("Accept") || "";
