@@ -24,6 +24,7 @@
     authSubmit: document.getElementById("auth-submit"),
     tabLogin: document.getElementById("tab-login"),
     tabRegister: document.getElementById("tab-register"),
+    toast: document.getElementById("toast"),
   };
 
   let user = null;
@@ -33,6 +34,10 @@
   let saveHintTimer = null;
   let authMode = "login"; // login | register
   let autoTimer = null;
+  let saving = false;
+  let toastTimer = null;
+  let saveBtnTimer = null;
+  const SAVE_BTN_LABEL = "保存";
 
   async function api(path, options) {
     const opts = Object.assign({ credentials: "include" }, options || {});
@@ -138,9 +143,8 @@
     showOnly("editor");
     els.noteTitle.value = note.title || "";
     els.noteBody.value = note.body || "";
-    els.saveHint.textContent = note.updatedAt
-      ? "上次编辑：" + formatTime(note.updatedAt)
-      : "";
+    setSaveButton("idle");
+    setSaveHint(note.updatedAt ? "上次编辑：" + formatTime(note.updatedAt) : "", null);
     setTimeout(() => els.noteBody.focus(), 50);
   }
 
@@ -206,30 +210,112 @@
     dirty = true;
   }
 
-  async function saveCurrent(showToast) {
-    if (!currentId) return;
+
+  function showToast(message, kind) {
+    if (!els.toast) return;
+    clearTimeout(toastTimer);
+    els.toast.textContent = message;
+    els.toast.classList.remove("hidden", "toast-ok", "toast-err", "toast-info");
+    els.toast.classList.add(kind === "err" ? "toast-err" : kind === "info" ? "toast-info" : "toast-ok");
+    toastTimer = setTimeout(() => {
+      els.toast.classList.add("hidden");
+      els.toast.textContent = "";
+    }, 2200);
+  }
+
+  function setSaveHint(text, kind) {
+    els.saveHint.textContent = text || "";
+    els.saveHint.classList.remove("save-ok", "save-err", "save-info");
+    if (kind === "ok") els.saveHint.classList.add("save-ok");
+    else if (kind === "err") els.saveHint.classList.add("save-err");
+    else if (kind === "info") els.saveHint.classList.add("save-info");
+  }
+
+  function setSaveButton(state) {
+    clearTimeout(saveBtnTimer);
+    els.btnSave.classList.remove("btn-save-ok");
+    if (state === "saving") {
+      els.btnSave.disabled = true;
+      els.btnSave.textContent = "保存中…";
+      return;
+    }
+    if (state === "ok") {
+      els.btnSave.disabled = false;
+      els.btnSave.textContent = "✓ 已保存";
+      els.btnSave.classList.add("btn-save-ok");
+      saveBtnTimer = setTimeout(() => {
+        els.btnSave.textContent = SAVE_BTN_LABEL;
+        els.btnSave.classList.remove("btn-save-ok");
+      }, 2000);
+      return;
+    }
+    if (state === "err") {
+      els.btnSave.disabled = false;
+      els.btnSave.textContent = "保存失败";
+      saveBtnTimer = setTimeout(() => {
+        els.btnSave.textContent = SAVE_BTN_LABEL;
+      }, 2000);
+      return;
+    }
+    els.btnSave.disabled = false;
+    els.btnSave.textContent = SAVE_BTN_LABEL;
+  }
+
+  async function saveCurrent(showFeedback) {
+    if (!currentId || saving) return;
     const note = notes.find((n) => n.id === currentId);
     if (!note) return;
     const title = els.noteTitle.value;
     const body = els.noteBody.value;
-    const { ok, data } = await api("/api/notes/" + encodeURIComponent(currentId), {
-      method: "PUT",
-      body: { title, body },
-    });
-    if (!ok) {
-      els.saveHint.textContent = (data && data.error) || "保存失败";
-      return;
+    const wantFeedback = showFeedback !== false;
+    saving = true;
+    if (wantFeedback) {
+      setSaveButton("saving");
+      setSaveHint("正在保存…", "info");
     }
-    note.title = data.note.title;
-    note.body = data.note.body;
-    note.updatedAt = data.note.updatedAt;
-    dirty = false;
-    if (showToast) {
-      els.saveHint.textContent = "已保存";
-      clearTimeout(saveHintTimer);
-      saveHintTimer = setTimeout(() => {
-        els.saveHint.textContent = "上次编辑：" + formatTime(note.updatedAt);
-      }, 1500);
+    try {
+      const { ok, data } = await api("/api/notes/" + encodeURIComponent(currentId), {
+        method: "PUT",
+        body: { title, body },
+      });
+      if (!ok) {
+        const err = (data && data.error) || "保存失败";
+        if (wantFeedback) {
+          setSaveButton("err");
+          setSaveHint(err, "err");
+          showToast(err, "err");
+        } else {
+          setSaveHint(err, "err");
+        }
+        return;
+      }
+      note.title = data.note.title;
+      note.body = data.note.body;
+      note.updatedAt = data.note.updatedAt;
+      dirty = false;
+      if (wantFeedback) {
+        setSaveButton("ok");
+        setSaveHint("已保存", "ok");
+        showToast("已保存", "ok");
+        clearTimeout(saveHintTimer);
+        saveHintTimer = setTimeout(() => {
+          setSaveHint("上次编辑：" + formatTime(note.updatedAt), null);
+        }, 2000);
+      }
+    } catch {
+      if (wantFeedback) {
+        setSaveButton("err");
+        setSaveHint("保存失败，请检查网络", "err");
+        showToast("保存失败", "err");
+      } else {
+        setSaveHint("保存失败，请检查网络", "err");
+      }
+    } finally {
+      saving = false;
+      if (!wantFeedback) {
+        // silent/background save: restore button if not in a feedback state
+        if (els.btnSave.textContent === "保存中…") setSaveButton("idle");
+      }
     }
   }
 

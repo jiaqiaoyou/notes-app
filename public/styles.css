@@ -349,3 +349,43 @@ body {
   padding: 48px 16px;
   color: var(--muted);
 }
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(28px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 100;
+  min-width: 140px;
+  max-width: min(90vw, 360px);
+  padding: 12px 20px;
+  border-radius: 999px;
+  background: #1c1917;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 650;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,.18);
+  pointer-events: none;
+}
+.toast.toast-ok { background: #15803d; }
+.toast.toast-err { background: #b91c1c; }
+.toast.toast-info { background: #1d4ed8; }
+@media (prefers-color-scheme: dark) {
+  .toast { background: #f5f0e8; color: #1c1917; }
+  .toast.toast-ok { background: #22c55e; color: #052e16; }
+  .toast.toast-err { background: #f87171; color: #450a0a; }
+  .toast.toast-info { background: #60a5fa; color: #082f49; }
+}
+
+.btn-save-ok {
+  background: #16a34a !important;
+}
+.btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.save-hint.save-ok { color: #16a34a; font-weight: 650; }
+.save-hint.save-err { color: var(--danger); font-weight: 650; }
+.save-hint.save-info { color: var(--accent); }
