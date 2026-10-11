@@ -16,7 +16,6 @@
 </head>
 <body>
   <div id="app">
-    <!-- Auth view -->
     <section id="view-auth" class="view" aria-label="登录注册">
       <header class="topbar">
         <h1 class="title">笔记</h1>
@@ -44,7 +43,6 @@
       </div>
     </section>
 
-    <!-- List view -->
     <section id="view-list" class="view hidden" aria-label="笔记列表">
       <header class="topbar">
         <div class="topbar-left">
@@ -63,21 +61,19 @@
       <p id="empty-state" class="empty hidden">还没有笔记。点右上角「新建」开始写。</p>
     </section>
 
-    <!-- Editor view -->
     <section id="view-editor" class="view hidden" aria-label="编辑笔记">
       <header class="topbar">
         <button type="button" id="btn-back" class="btn btn-ghost" aria-label="返回列表">‹ 返回</button>
         <div class="topbar-actions">
           <button type="button" id="btn-delete" class="btn btn-danger" aria-label="删除笔记">删除</button>
-          <button type="button" id="btn-save" class="btn btn-primary" aria-label="保存笔记">保存</button>
         </div>
       </header>
       <input type="text" id="note-title" class="note-title" placeholder="标题" maxlength="120" autocomplete="off" />
+      <p id="editor-meta" class="editor-meta" aria-live="polite"></p>
       <textarea id="note-body" class="note-body" placeholder="开始写吧…" enterkeyhint="enter"></textarea>
       <p id="save-hint" class="save-hint" aria-live="polite"></p>
     </section>
   </div>
-  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <script src="/app.js"></script>
 </body>
 </html>

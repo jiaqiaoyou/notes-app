@@ -1,4 +1,4 @@
-const CACHE = "notes-app-v4-savefb";
+const CACHE = "notes-app-v5-autosave";
 const PRECACHE = ["/", "/index.html", "/styles.css", "/app.js", "/manifest.json"];
 
 self.addEventListener("install", (event) => {

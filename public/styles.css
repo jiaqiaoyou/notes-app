@@ -389,3 +389,31 @@ body {
 .save-hint.save-ok { color: #16a34a; font-weight: 650; }
 .save-hint.save-err { color: var(--danger); font-weight: 650; }
 .save-hint.save-info { color: var(--accent); }
+
+.editor-meta {
+  margin: 0;
+  padding: 0 20px 4px;
+  min-height: 1.2em;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.save-hint {
+  margin: 0;
+  padding: 0 20px calc(12px + var(--safe-bottom));
+  min-height: 1.15em;
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: left;
+  opacity: 0.85;
+  transition: opacity 0.35s ease;
+}
+.save-hint.is-fading { opacity: 0; }
+.save-hint.save-ok { color: var(--muted); font-weight: 500; }
+.save-hint.save-err { color: var(--danger); font-weight: 600; opacity: 1; }
+.save-hint.save-info { color: var(--muted); }
+
+.note-body {
+  padding-bottom: 8px;
+}
+

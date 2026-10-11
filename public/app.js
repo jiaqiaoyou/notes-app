@@ -1,6 +1,8 @@
 (function () {
   "use strict";
 
+  const AUTOSAVE_MS = 650;
+
   const els = {
     viewAuth: document.getElementById("view-auth"),
     viewList: document.getElementById("view-list"),
@@ -10,11 +12,11 @@
     search: document.getElementById("search"),
     btnNew: document.getElementById("btn-new"),
     btnBack: document.getElementById("btn-back"),
-    btnSave: document.getElementById("btn-save"),
     btnDelete: document.getElementById("btn-delete"),
     btnLogout: document.getElementById("btn-logout"),
     noteTitle: document.getElementById("note-title"),
     noteBody: document.getElementById("note-body"),
+    editorMeta: document.getElementById("editor-meta"),
     saveHint: document.getElementById("save-hint"),
     userBadge: document.getElementById("user-badge"),
     authForm: document.getElementById("auth-form"),
@@ -24,20 +26,18 @@
     authSubmit: document.getElementById("auth-submit"),
     tabLogin: document.getElementById("tab-login"),
     tabRegister: document.getElementById("tab-register"),
-    toast: document.getElementById("toast"),
   };
 
   let user = null;
   let notes = [];
   let currentId = null;
   let dirty = false;
-  let saveHintTimer = null;
-  let authMode = "login"; // login | register
+  let authMode = "login";
   let autoTimer = null;
   let saving = false;
-  let toastTimer = null;
-  let saveBtnTimer = null;
-  const SAVE_BTN_LABEL = "保存";
+  let pendingSave = false;
+  let hintTimer = null;
+  let metaTimer = null;
 
   async function api(path, options) {
     const opts = Object.assign({ credentials: "include" }, options || {});
@@ -99,6 +99,31 @@
     }
   }
 
+  function formatRecentEdit(ts) {
+    if (!ts) return "尚未编辑";
+    const now = Date.now();
+    const diff = Math.max(0, now - ts);
+    if (diff < 45 * 1000) return "最近编辑：刚刚";
+    if (diff < 60 * 60 * 1000) {
+      const m = Math.floor(diff / 60000);
+      return "最近编辑：" + m + " 分钟前";
+    }
+    try {
+      const d = new Date(ts);
+      const sameDay =
+        d.getFullYear() === new Date(now).getFullYear() &&
+        d.getMonth() === new Date(now).getMonth() &&
+        d.getDate() === new Date(now).getDate();
+      if (sameDay) {
+        const hm = d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+        return "最近编辑：" + hm;
+      }
+      return "最近编辑：" + formatTime(ts);
+    } catch {
+      return "最近编辑：" + formatTime(ts);
+    }
+  }
+
   function previewText(body) {
     const t = (body || "").replace(/\s+/g, " ").trim();
     return t || "（空白）";
@@ -109,6 +134,29 @@
     if (t) return t;
     const first = (note.body || "").split(/\n/)[0].trim();
     return first || "无标题";
+  }
+
+  function setEditorMeta(ts) {
+    els.editorMeta.textContent = formatRecentEdit(ts);
+  }
+
+  function setSaveHint(text, kind) {
+    clearTimeout(hintTimer);
+    els.saveHint.classList.remove("is-fading", "save-ok", "save-err", "save-info");
+    els.saveHint.textContent = text || "";
+    if (!text) return;
+    if (kind === "ok") els.saveHint.classList.add("save-ok");
+    else if (kind === "err") els.saveHint.classList.add("save-err");
+    else if (kind === "info") els.saveHint.classList.add("save-info");
+    if (kind === "ok") {
+      hintTimer = setTimeout(() => {
+        els.saveHint.classList.add("is-fading");
+        hintTimer = setTimeout(() => {
+          els.saveHint.textContent = "";
+          els.saveHint.classList.remove("is-fading", "save-ok");
+        }, 400);
+      }, 1800);
+    }
   }
 
   async function loadNotes() {
@@ -132,6 +180,8 @@
   function showList() {
     currentId = null;
     dirty = false;
+    clearTimeout(autoTimer);
+    clearTimeout(metaTimer);
     els.saveHint.textContent = "";
     showOnly("list");
     renderList(els.search.value);
@@ -140,12 +190,23 @@
   function showEditor(note) {
     currentId = note.id;
     dirty = false;
+    clearTimeout(autoTimer);
     showOnly("editor");
     els.noteTitle.value = note.title || "";
     els.noteBody.value = note.body || "";
-    setSaveButton("idle");
-    setSaveHint(note.updatedAt ? "上次编辑：" + formatTime(note.updatedAt) : "", null);
+    setEditorMeta(note.updatedAt);
+    setSaveHint("", null);
+    tickMeta();
     setTimeout(() => els.noteBody.focus(), 50);
+  }
+
+  function tickMeta() {
+    clearTimeout(metaTimer);
+    const note = notes.find((n) => n.id === currentId);
+    if (!note || els.viewEditor.classList.contains("hidden")) return;
+    // Don't overwrite an error hint's context—meta is separate
+    setEditorMeta(note.updatedAt);
+    metaTimer = setTimeout(tickMeta, 30000);
   }
 
   function renderList(query) {
@@ -210,111 +271,43 @@
     dirty = true;
   }
 
-
-  function showToast(message, kind) {
-    if (!els.toast) return;
-    clearTimeout(toastTimer);
-    els.toast.textContent = message;
-    els.toast.classList.remove("hidden", "toast-ok", "toast-err", "toast-info");
-    els.toast.classList.add(kind === "err" ? "toast-err" : kind === "info" ? "toast-info" : "toast-ok");
-    toastTimer = setTimeout(() => {
-      els.toast.classList.add("hidden");
-      els.toast.textContent = "";
-    }, 2200);
-  }
-
-  function setSaveHint(text, kind) {
-    els.saveHint.textContent = text || "";
-    els.saveHint.classList.remove("save-ok", "save-err", "save-info");
-    if (kind === "ok") els.saveHint.classList.add("save-ok");
-    else if (kind === "err") els.saveHint.classList.add("save-err");
-    else if (kind === "info") els.saveHint.classList.add("save-info");
-  }
-
-  function setSaveButton(state) {
-    clearTimeout(saveBtnTimer);
-    els.btnSave.classList.remove("btn-save-ok");
-    if (state === "saving") {
-      els.btnSave.disabled = true;
-      els.btnSave.textContent = "保存中…";
+  async function saveCurrent(opts) {
+    const quiet = !opts || opts.quiet !== false;
+    if (!currentId) return;
+    if (saving) {
+      pendingSave = true;
       return;
     }
-    if (state === "ok") {
-      els.btnSave.disabled = false;
-      els.btnSave.textContent = "✓ 已保存";
-      els.btnSave.classList.add("btn-save-ok");
-      saveBtnTimer = setTimeout(() => {
-        els.btnSave.textContent = SAVE_BTN_LABEL;
-        els.btnSave.classList.remove("btn-save-ok");
-      }, 2000);
-      return;
-    }
-    if (state === "err") {
-      els.btnSave.disabled = false;
-      els.btnSave.textContent = "保存失败";
-      saveBtnTimer = setTimeout(() => {
-        els.btnSave.textContent = SAVE_BTN_LABEL;
-      }, 2000);
-      return;
-    }
-    els.btnSave.disabled = false;
-    els.btnSave.textContent = SAVE_BTN_LABEL;
-  }
-
-  async function saveCurrent(showFeedback) {
-    if (!currentId || saving) return;
     const note = notes.find((n) => n.id === currentId);
     if (!note) return;
     const title = els.noteTitle.value;
     const body = els.noteBody.value;
-    const wantFeedback = showFeedback !== false;
     saving = true;
-    if (wantFeedback) {
-      setSaveButton("saving");
-      setSaveHint("正在保存…", "info");
-    }
     try {
       const { ok, data } = await api("/api/notes/" + encodeURIComponent(currentId), {
         method: "PUT",
         body: { title, body },
       });
       if (!ok) {
-        const err = (data && data.error) || "保存失败";
-        if (wantFeedback) {
-          setSaveButton("err");
-          setSaveHint(err, "err");
-          showToast(err, "err");
-        } else {
-          setSaveHint(err, "err");
-        }
+        const err = (data && data.error) || "自动保存失败";
+        setSaveHint(err, "err");
         return;
       }
       note.title = data.note.title;
       note.body = data.note.body;
       note.updatedAt = data.note.updatedAt;
       dirty = false;
-      if (wantFeedback) {
-        setSaveButton("ok");
-        setSaveHint("已保存", "ok");
-        showToast("已保存", "ok");
-        clearTimeout(saveHintTimer);
-        saveHintTimer = setTimeout(() => {
-          setSaveHint("上次编辑：" + formatTime(note.updatedAt), null);
-        }, 2000);
+      setEditorMeta(note.updatedAt);
+      if (quiet) {
+        setSaveHint("已自动保存", "ok");
       }
     } catch {
-      if (wantFeedback) {
-        setSaveButton("err");
-        setSaveHint("保存失败，请检查网络", "err");
-        showToast("保存失败", "err");
-      } else {
-        setSaveHint("保存失败，请检查网络", "err");
-      }
+      setSaveHint("自动保存失败，请检查网络", "err");
     } finally {
       saving = false;
-      if (!wantFeedback) {
-        // silent/background save: restore button if not in a feedback state
-        if (els.btnSave.textContent === "保存中…") setSaveButton("idle");
+      if (pendingSave) {
+        pendingSave = false;
+        if (dirty) scheduleAutosave();
       }
     }
   }
@@ -322,6 +315,7 @@
   async function deleteCurrent() {
     if (!currentId) return;
     if (!confirm("确定删除这篇笔记？")) return;
+    clearTimeout(autoTimer);
     const id = currentId;
     const { ok, data } = await api("/api/notes/" + encodeURIComponent(id), {
       method: "DELETE",
@@ -337,7 +331,7 @@
   function scheduleAutosave() {
     dirty = true;
     clearTimeout(autoTimer);
-    autoTimer = setTimeout(() => saveCurrent(true), 800);
+    autoTimer = setTimeout(() => saveCurrent({ quiet: true }), AUTOSAVE_MS);
   }
 
   async function handleAuthSubmit(e) {
@@ -400,10 +394,10 @@
   els.btnNew.addEventListener("click", createNote);
   els.btnLogout.addEventListener("click", handleLogout);
   els.btnBack.addEventListener("click", async () => {
-    if (dirty) await saveCurrent(false);
+    clearTimeout(autoTimer);
+    if (dirty) await saveCurrent({ quiet: true });
     showList();
   });
-  els.btnSave.addEventListener("click", () => saveCurrent(true));
   els.btnDelete.addEventListener("click", deleteCurrent);
   els.search.addEventListener("input", () => renderList(els.search.value));
   els.noteTitle.addEventListener("input", scheduleAutosave);
@@ -411,10 +405,10 @@
 
   window.addEventListener("pagehide", () => {
     if (dirty && currentId) {
-      // best-effort keepalive save
-      const title = els.noteTitle.value;
-      const body = els.noteBody.value;
-      const payload = JSON.stringify({ title, body });
+      const payload = JSON.stringify({
+        title: els.noteTitle.value,
+        body: els.noteBody.value,
+      });
       try {
         fetch("/api/notes/" + encodeURIComponent(currentId), {
           method: "PUT",
@@ -426,6 +420,13 @@
       } catch {
         /* ignore */
       }
+    }
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden" && dirty && currentId) {
+      clearTimeout(autoTimer);
+      saveCurrent({ quiet: true });
     }
   });
 
