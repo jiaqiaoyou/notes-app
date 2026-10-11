@@ -7,20 +7,54 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="笔记" />
   <meta name="theme-color" content="#f7f4ef" />
-  <meta name="description" content="简洁纯文字笔记" />
-  <link rel="manifest" href="manifest.json" />
-  <link rel="apple-touch-icon" href="icons/icon-180.png" />
-  <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+  <meta name="description" content="简洁多用户笔记" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/icons/icon.svg" />
+  <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
   <title>笔记</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <div id="app">
-    <!-- List view -->
-    <section id="view-list" class="view" aria-label="笔记列表">
+    <!-- Auth view -->
+    <section id="view-auth" class="view" aria-label="登录注册">
       <header class="topbar">
         <h1 class="title">笔记</h1>
-        <button type="button" id="btn-new" class="btn btn-primary" aria-label="新建笔记">新建</button>
+      </header>
+      <div class="auth-card">
+        <div class="auth-tabs" role="tablist">
+          <button type="button" id="tab-login" class="auth-tab active" role="tab" aria-selected="true">登录</button>
+          <button type="button" id="tab-register" class="auth-tab" role="tab" aria-selected="false">注册</button>
+        </div>
+        <form id="auth-form" class="auth-form" autocomplete="on">
+          <label class="field">
+            <span>用户名</span>
+            <input type="text" id="auth-username" name="username" maxlength="32" minlength="3"
+              placeholder="3–32 个字符" required autocomplete="username" />
+          </label>
+          <label class="field">
+            <span>密码</span>
+            <input type="password" id="auth-password" name="password" maxlength="128" minlength="6"
+              placeholder="至少 6 位" required autocomplete="current-password" />
+          </label>
+          <p id="auth-error" class="auth-error hidden" role="alert"></p>
+          <button type="submit" id="auth-submit" class="btn btn-primary btn-block">登录</button>
+        </form>
+        <p class="auth-hint">无需邮箱或手机，用户名 + 密码即可。笔记保存在云端，仅自己可见。</p>
+      </div>
+    </section>
+
+    <!-- List view -->
+    <section id="view-list" class="view hidden" aria-label="笔记列表">
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 class="title">笔记</h1>
+          <span id="user-badge" class="user-badge"></span>
+        </div>
+        <div class="topbar-actions">
+          <button type="button" id="btn-logout" class="btn btn-ghost" aria-label="退出登录">退出</button>
+          <button type="button" id="btn-new" class="btn btn-primary" aria-label="新建笔记">新建</button>
+        </div>
       </header>
       <div class="search-wrap">
         <input type="search" id="search" class="search" placeholder="搜索…" enterkeyhint="search" autocomplete="off" />
@@ -43,6 +77,6 @@
       <p id="save-hint" class="save-hint" aria-live="polite"></p>
     </section>
   </div>
-  <script src="app.js"></script>
+  <script src="/app.js"></script>
 </body>
 </html>
